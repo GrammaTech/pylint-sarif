@@ -27,9 +27,25 @@ def start():
     p2s = Pylint2Sarif(args)
     p2s.run_pylint()
 
-lre = re.compile('^([^:]+):([0-9]+): \[([^\]]+)\] (.*)$')
-
+# This is used to match lines that are output by "pylint --list-msgs"
 msgre = re.compile('^:([^\(]*) \(([^\)]+)\):( \*([^\*]+)\*)?$')
+
+"""Pylint messages are sometimes of the following form:
+
+Exactly one space required after comma
+os.path.join(os.environ['x'],"four","five")
+                            ^
+
+This looks terrible unless it is properly formatted with a fixed-width
+font. Ultimately, these will be translated into rich text and formatted
+in that way, but the regular non-rich-text property of a message object
+will have the line with the caret and everything thereafter stripped 
+out. The coordinates of where the caret points to are also present,
+so this is no big loss. The following regexp matches everything on
+the line with the caret on it to the end.
+"""
+
+caret_re = re.compile("(.*)\\n[ ]*\\^.*$", re.DOTALL)
 
 def path2uri(path):
     return 'file:///' + path.replace(os.sep, '/')
@@ -56,6 +72,12 @@ class Pylint2Sarif(object):
         self.sarif = builder.build_classes()
     
     def mk_sarif_result(self, jw):
+
+        match = caret_re.match(jw['message'])
+        if match is None:
+            messageText = jw['message']
+        else:
+            messageText = match.group(1)
         
         floc = self.sarif.FileLocation(uri = path2uri(os.path.abspath(jw['path'])))
 
@@ -65,7 +87,7 @@ class Pylint2Sarif(object):
                     startLine=jw['line'], 
                     startColumn=jw['column']+1)))
         result = self.sarif.Result(
-            message = self.sarif.Message(text=jw['message']),
+            message = self.sarif.Message(text=messageText),
             ruleId = jw['message-id'],
             locations = [loc])
 
