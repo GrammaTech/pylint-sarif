@@ -5,10 +5,10 @@
 # 
 import argparse
 import subprocess
-import pylint2sarif
 import shutil
 import os
 import sys
+import pylint2sarif
 
 def fatal(s):
     sys.stderr.write('pylint2cso: fatal error: {0}'.format(s))

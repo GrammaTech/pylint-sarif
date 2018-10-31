@@ -1,5 +1,7 @@
 
-print("This is pylint2sarif")
+"""
+Convert the output of Pylint to SARIF.
+"""
 import sys
 import os
 import argparse
@@ -39,13 +41,12 @@ os.path.join(os.environ['x'],"four","five")
 This looks terrible unless it is properly formatted with a fixed-width
 font. Ultimately, these will be translated into rich text and formatted
 in that way, but the regular non-rich-text property of a message object
-will have the line with the caret and everything thereafter stripped 
+will have the line with the caret and everything associated with it stripped 
 out. The coordinates of where the caret points to are also present,
 so this is no big loss. The following regexp matches everything on
 the line with the caret on it to the end.
 """
-
-caret_re = re.compile("(.*)\\n[ ]*\\^.*$", re.DOTALL)
+caret_re = re.compile("(.*)\\n.*\\n[ ]*\\^.*$", re.DOTALL)
 
 def path2uri(path):
     return 'file:///' + path.replace(os.sep, '/')
@@ -63,6 +64,10 @@ pylint_errcode = """pylint2sarif: pylint returned non-zero exit code {} with com
 pylint_returncode_description = """pylint2sarif: pylint returned an exit code of {}, indicating:
              '{}'
 """
+
+def mk_id(id):
+    """Make an id from a string such as 'C0326'."""
+    return "PYLINT.{}".format(id)
 
 class Pylint2Sarif(object):
     def __init__(self, args):
@@ -88,7 +93,7 @@ class Pylint2Sarif(object):
                     startColumn=jw['column']+1)))
         result = self.sarif.Result(
             message = self.sarif.Message(text=messageText),
-            ruleId = jw['message-id'],
+            ruleId = mk_id(jw['message-id']),
             locations = [loc])
 
         return result
@@ -103,6 +108,7 @@ class Pylint2Sarif(object):
         return rule
 
     def create_rules(self):
+        """Invoke pylint and create the set of SARIF rules"""
         cmdline = ['pylint', '--list-msgs']
         ruleId = None
         ruleName = None
@@ -132,13 +138,14 @@ class Pylint2Sarif(object):
                 if ruleId is not None:
                     rules[ruleId] = self.flush_rule(ruleId, ruleName, shortDesc, fullDesc)
                 ruleName = m.group(1)
-                ruleId = m.group(2)
+                ruleId = mk_id(m.group(2))
                 shortDesc = m.group(4)
                 fullDesc = ''
         rules[ruleId] = self.flush_rule(ruleId, ruleName, shortDesc, fullDesc)
         return rules
 
     def run_pylint(self):
+        """Invoke pylint to output json, then convert that to SARIF"""
         rules = self.create_rules()
         retcode = 0
         with open(self.tmpfile, 'w') as fp:
