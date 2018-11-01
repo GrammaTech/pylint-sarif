@@ -75,8 +75,7 @@ class Pylint2CodeSonar(object):
             fatal("Could not run CodeSonar to create the config file")
         with open(conf_file,'a') as fp:
             fp.write('COMPILER_MODELS += cs-metascan -> cs-metascan\n'+
-                     'COMPILER_MODELS += cs-metascan.exe -> cs-metascan\n'+
-                     'PLUGINS += {}\n'.format(os.path.join(self.cso_root, "codesonar", "plugins", "sarif_importer.py")))
+                     'COMPILER_MODELS += cs-metascan.exe -> cs-metascan\n')
 
     def install_sarif_file(self):
         shutil.move(self.args.sarif_output, '{}.pylint.sarif'.format(self.args.project))
@@ -104,6 +103,7 @@ class Pylint2CodeSonar(object):
                    self.args.project,
                    '-foreground',
                    '-no-services',
+                   '-preset', 'sarif_import',
                    self.args.hub]
         print('Invoking "{}"'.format(cmdline))
         retcode = subprocess.call(cmdline)
