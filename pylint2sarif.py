@@ -18,44 +18,72 @@ def check_prerequisites():
                          'Use a standard windows Python install instead.\n')
         sys.exit(1)
 
-def start():
+def main():
     """Entry point to this program"""
     check_prerequisites()
     parser = argparse.ArgumentParser(description='Run pylint and convert the output to SARIF')
     parser.add_argument('--sarif-output', dest='sarif_output',
                         default='pylint.sarif',
                         help='The name of the SARIF file')
-    parser.add_argument('inputs', nargs='+',
+    parser.add_argument('--doctest', action='store_true', help='Run doctest on this Python file')
+    parser.add_argument('inputs', nargs='*',
                         help='The names of the Python files')
 
     args = parser.parse_args()
+    if args.doctest:
+        import doctest
+        doctest.testmod()
+        return
+    if not args.inputs:
+        sys.stderr.write("Error: no inputs were specified\n")
+        parser.print_help(sys.stderr)
+        return
     p2s = Pylint2Sarif(args)
     p2s.run_pylint()
 
+def log(message):
+    """Log a message to stdout with a helpful prefix"""
+    sys.stdout.write("Pylint2sarif: {}\n".format(message))
+
 # This is used to match lines that are output by "pylint --list-msgs"
-MSGRE = re.compile('^:([^\(]*) \(([^\)]+)\):( \*([^\*]+)\*)?$')
+MSGRE = re.compile(r'^:([^\(]*) \(([^\)]+)\):( \*([^\*]+)\*)?$')
 
-"""Pylint messages are sometimes of the following form:
+def remove_caret_part(message):
+    """Pylint messages are sometimes of the following form:
 
-Exactly one space required after comma
-os.path.join(os.environ['x'],"four","five")
-                            ^
+    Exactly one space required after comma
+    os.path.join(os.environ['x'],"four","five")
+                                ^
 
-This looks terrible unless it is properly formatted with a fixed-width
-font. Ultimately, these will be translated into rich text and formatted
-in that way, but the regular non-rich-text property of a message object
-will have the line with the caret and everything associated with it stripped
-out. The coordinates of where the caret points to are also present,
-so this is no big loss. The following regexp matches everything on
-the line with the caret on it to the end.
-"""
-CARET_RE = re.compile("(.*)\\n.*\\n[ ]*\\^.*$", re.DOTALL)
+    This looks terrible unless it is properly formatted with a fixed-width
+    font. Ultimately, these will be translated into rich text and formatted
+    in that way, but the regular non-rich-text property of a message object
+    will have the line with the caret and everything associated with it stripped
+    out. The coordinates of where the caret points to are also present,
+    so this is no big loss. The regexp CARET_RE matches everything on
+    the line with the caret on it to the end.
+
+    >>> remove_caret_part('one')
+    'one'
+    >>> remove_caret_part('two\\n  code\\n    ^')
+    'two'
+    >>> remove_caret_part('three\\n   more code\\n    |   ^')
+    'three'
+    >>> remove_caret_part('four\\n  !@#$%^&*() code\\n    |   ^')
+    'four'
+    """
+    match = CARET_RE.match(message)
+    if match is None:
+        return message
+    return match.group(1)
+
+CARET_RE = re.compile(r"(.*)\n.*\n[ \|]*\^.*$", re.DOTALL)
 
 def path2uri(path):
     """Create a Sarif URI from a pathname"""
     return 'file:///' + path.replace(os.sep, '/')
 
-PYLINT_HELP = """pylint2sarif: failed to invoke pylint with command line {}.
+PYLINT_HELP = r"""pylint2sarif: failed to invoke pylint with command line {}.
 Please make sure that pylint is installed and in your PATH.
 On Windows this is likely in a location such as 'C:\Python37\Scripts'.
 Please see https://www.pylint.org for details on how to install
@@ -85,17 +113,12 @@ class Pylint2Sarif(object):
 
     def mk_sarif_result(self, pylint_warning):
         """Create a Sarif Result object from a Pylint warning"""
-        match = CARET_RE.match(pylint_warning['message'])
-        if match is None:
-            message_text = pylint_warning['message']
-        else:
-            message_text = match.group(1)
-        
+        message_text = remove_caret_part(pylint_warning['message'])
         floc = self.sarif.FileLocation(uri=path2uri(os.path.abspath(pylint_warning['path'])))
 
         loc = self.sarif.Location(
-            physicalLocation=self.sarif.PhysicalLocation
-                (fileLocation=floc,
+            physicalLocation=self.sarif.PhysicalLocation(
+                fileLocation=floc,
                     region=self.sarif.Region(
                         startLine=pylint_warning['line'],
                         startColumn=pylint_warning['column']+1)))
@@ -125,7 +148,7 @@ class Pylint2Sarif(object):
         full_description = None
         rules = {}
         try:
-            print("pylint2sarif: invoking {}".format(cmdline))
+            log("invoking {}".format(cmdline))
             proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except Exception as e:
             sys.stderr.write(PYLINT_HELP.format(cmdline, e))
@@ -164,25 +187,25 @@ class Pylint2Sarif(object):
                        "-r",
                        "n"]
             cmdline += self.args.inputs
-            print("pylint2sarif: invoking {}".format(cmdline))
+            log("invoking {}".format(cmdline))
             retcode = subprocess.call(cmdline, stdout=fp)
             if retcode == 0:
-                retDesc = 'Successful completion. No messages.'
+                return_description = 'Successful completion. No messages.'
             else:
-                retDesc = ''
+                return_description = ''
                 if retcode & 1:
-                    retDesc = 'Fatal mesage issued. '
+                    return_description = 'Fatal mesage issued. '
                 if retcode & 2:
-                    retDesc += 'Error mesage issued. '
+                    return_description += 'Error mesage issued. '
                 if retcode & 4:
-                    retDesc += 'Warning mesage issued. '
+                    return_description += 'Warning mesage issued. '
                 if retcode & 8:
-                    retDesc += 'Refactor mesage issued. '
+                    return_description += 'Refactor mesage issued. '
                 if retcode & 16:
-                    retDesc += 'Convention mesage issued. '
+                    return_description += 'Convention mesage issued. '
                 if retcode & 32:
-                    retDesc += 'Usage error.'
-            sys.stdout.write(PYLINT_RETURNCODE_DESCRIPTION.format(retcode, retDesc))
+                    return_description += 'Usage error.'
+            sys.stdout.write(PYLINT_RETURNCODE_DESCRIPTION.format(retcode, return_description))
             
         with open(self.tmpfile, 'r') as fp:
             warnings = json.load(fp)
@@ -198,7 +221,7 @@ class Pylint2Sarif(object):
             machine=platform.node(),
             workingDirectory=self.sarif.FileLocation(uri="file:///{}".format(os.getcwd())),
             exitCode=retcode,
-            exitCodeDescription=retDesc)
+            exitCodeDescription=return_description)
         resources = self.sarif.Resources(rules=rules)
         run = self.sarif.Run(tool=tool, invocations=[invocation], results=results, resources=resources)
 
@@ -207,8 +230,8 @@ class Pylint2Sarif(object):
         ctor = getattr(self.sarif, "StaticAnalysisResultsFormatSarifVersion200-csd2Beta2018-09-26JsonSchema")
         sarif_log = ctor(version="2.0.0-csd.2.beta.2018-09-26", runs=[run])
 
-        with open(self.args.sarif_output, 'w') as o:
-            o.write(sarif_log.serialize(indent=4))
+        with open(self.args.sarif_output, 'w') as out_file:
+            out_file.write(sarif_log.serialize(indent=4))
 
 if __name__ == '__main__':
-    start()
+    main()
