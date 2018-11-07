@@ -44,6 +44,7 @@ def main():
 def log(message):
     """Log a message to stdout with a helpful prefix"""
     sys.stdout.write("Pylint2sarif: {}\n".format(message))
+    sys.stdout.flush()
 
 # This is used to match lines that are output by "pylint --list-msgs"
 MSGRE = re.compile(r'^:([^\(]*) \(([^\)]+)\):( \*([^\*]+)\*)?$')

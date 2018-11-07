@@ -35,6 +35,7 @@ def check_prerequisites():
 def log(message):
     """For logging progress to stdout with a helpful prefix"""
     sys.stdout.write("Pylint2cso: {}\n".format(message))
+    sys.stdout.flush()
 
 def main():
     """Entrypoint to this program"""
