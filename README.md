@@ -36,8 +36,10 @@ python pylint2cso.py -h
 Sample invocation:
 
 ``` 
-python pylint2cso.py Pylint2Cso localhost:9988 -f ex1.py
+codesonar analyze -preset sarif_import Proj localhost:9460 python pylint2cso.py ex.py
 ```
+
+Note that this must be run under CodeSonar in this fashion or it will just not work.
 
 
 ## Requirements

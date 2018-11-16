@@ -78,6 +78,8 @@ def remove_caret_part(message):
         return message
     return match.group(1)
 
+# TODO: wc('bad-whitespace').report(<sfileinst 'pylint2sarif.py'>, 127, 'No space allowed around keyword argument assignment\n            arguments = cmdline[1:],\r\n                      ^.   Used when a wrong number of spaces is used around an operator, bracket or  block opene
+
 CARET_RE = re.compile(r"(.*)\n.*\n[ \|]*\^.*$", re.DOTALL)
 
 def path2uri(path):
@@ -100,9 +102,11 @@ PYLINT_RETURNCODE_DESCRIPTION = """pylint2sarif: pylint returned an exit code of
              '{}'
 """
 
+PYLINT_FAILURE = """Pylint encountered a fatal error; its output is shown below.\n"""
+
 def mk_id(identifier):
     """Make an id from a string such as 'C0326'."""
-    return "PYLINT.{}".format(identifier)
+    return identifier
 
 class Pylint2Sarif(object):
     """Top-level class for converting Pylint output to SARIF"""
@@ -207,6 +211,12 @@ class Pylint2Sarif(object):
                 if retcode & 32:
                     return_description += 'Usage error.'
             sys.stdout.write(PYLINT_RETURNCODE_DESCRIPTION.format(retcode, return_description))
+            if retcode & 1:
+                sys.stderr.write(PYLINT_FAILURE)
+                with open(self.tmpfile, 'r') as fp:
+                    for line in fp:
+                        sys.stderr.write(line)
+                sys.exit(1)
             
         with open(self.tmpfile, 'r') as fp:
             warnings = json.load(fp)

@@ -6,9 +6,9 @@ This program is intended to be run a manner such as the following:
 
 This is accomplished as follows:
 
-  Methods in pylint2sarif.py are invoked to generate a Sarif file
-  cs-metascan cspython cs-import.py is executed to import the target files
-  Methods in sarif_import.py are invoked to cause the Sarif file to be copied
+  - Methods in pylint2sarif.py are invoked to generate a Sarif file
+  - cs-metascan cspython cs-import.py is executed to import the target files
+  - Methods in sarif_import.py are invoked to cause the Sarif file to be copied
 
 The codesonar analyze command, by virtue of the preset, causes the Sarif file
 to be imported into the analysis.
@@ -88,7 +88,14 @@ class Pylint2CodeSonar(object):
         cmdline = ['cs-metascan',
                    'cspython',
                    os.path.join(self.cso_root, 'csurf', 'src', 'front_ends', 'cs-import.py')]
-        cmdline += self.args.inputs
+        # Special case: if the user specified .pyc files as inputs, convert those names to .py
+        def strip_pyc(fname):
+            if fname.endswith('.pyc'):
+                return fname[:-1]
+            else:
+                return fname
+        inputfiles = map(strip_pyc, self.args.inputs)
+        cmdline += inputfiles
         log('invoking "{}"'.format(cmdline))
         retcode = subprocess.call(cmdline)
         if retcode != 0:
