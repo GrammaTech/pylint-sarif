@@ -78,13 +78,24 @@ def remove_caret_part(message):
         return message
     return match.group(1)
 
-# TODO: wc('bad-whitespace').report(<sfileinst 'pylint2sarif.py'>, 127, 'No space allowed around keyword argument assignment\n            arguments = cmdline[1:],\r\n                      ^.   Used when a wrong number of spaces is used around an operator, bracket or  block opene
-
 CARET_RE = re.compile(r"(.*)\n.*\n[ \|]*\^.*$", re.DOTALL)
 
+DRIVE_RE = re.compile(r"^[a-zA-Z]:")
+
 def path2uri(path):
-    """Create a Sarif URI from a pathname"""
-    return 'file:///' + path.replace(os.sep, '/')
+    """Create a Sarif URI from a pathname
+
+    This is slightly tricky because the path can be relative or
+    absolute. If it is a Linux absolute it is like '/a/b.c',
+    but a Windows absolute is 'C:\a\b.c'. Just prefixing
+    'file:///' isn't good enough because that's one too many slashes
+    for Linux. So, only prefix three slashes if it starts with a Windows
+    drive specifier.
+    """
+    path = path.replace('\\', '/')
+    if DRIVE_RE.match(path):
+        path = '/' + path
+    return 'file://' + path
 
 PYLINT_HELP = r"""pylint2sarif: failed to invoke pylint with command line {}.
 Please make sure that pylint is installed and in your PATH.
@@ -107,6 +118,15 @@ PYLINT_FAILURE = """Pylint encountered a fatal error; its output is shown below.
 def mk_id(identifier):
     """Make an id from a string such as 'C0326'."""
     return identifier
+
+def mk_level(ptype):
+    """Convert a Pylint warning "type" to a Sarif level"""
+    ldict = {'error': 'error',
+             'warning': 'warning',
+             'refactor': 'note',
+             'convention': 'note',
+             'usage': 'note'}
+    return ldict.get(ptype, 'note')
 
 class Pylint2Sarif(object):
     """Top-level class for converting Pylint output to SARIF"""
@@ -134,13 +154,54 @@ class Pylint2Sarif(object):
 
         return result
 
+    def mk_configuration(self, rule_id):
+        """Make a configuration object for a rule
+
+        In Pylint, the first character of the rule ID indicates its level
+        """
+        ldict = {'C': 'note',    # Convention
+                 'E': 'error',   # Error
+                 'R': 'note',    # Refactor
+                 'W': 'warning', # Warning
+                 'I': 'note',    # Informational
+                 'F': 'error'    # Failure
+            }
+        return self.sarif.RuleConfiguration(defaultLevel=ldict.get(rule_id[0], 'note'))
+
+    def mk_codesonar_rule_property_bag(self, rule_id):
+        """Create a special property bag for the use of CodeSonar
+
+        This will contain the mapping to significance as follows:
+            'reliability': cs.warning_significance.RELIABILITY,
+            'diagnostic': cs.warning_significance.DIAGNOSTIC,
+            'from_manifest': cs.warning_significance.FROM_MANIFEST,
+            'redundancy': cs.warning_significance.REDUNDANCY,
+            'security': cs.warning_significance.SECURITY,
+            'style': cs.warning_significance.STYLE,
+            'unspecified': cs.warning_significance.UNSPECIFIED
+        The first letter of the rule_id is used to make the determination.
+        """
+        sdict = {'C': 'style',       # Convention
+                 'E': 'reliability', # Error
+                 'R': 'style',       # Refactor
+                 'W': 'reliability', # Warning
+                 'I': 'style',       # Informational
+                 'F': 'diagnostic'   # Failure
+            }
+        significance = sdict.get(rule_id[0])
+        if significance is None:
+            return {}
+        return { "CodeSonar": { "significance": significance } }
+
     def flush_rule(self, rule_id, rule_name, short_description, full_description):
         """Flush all information about a pending rule"""
         rule = self.sarif.Rule(
             id=rule_id,
             name=self.sarif.Message(text=rule_name),
+            configuration=self.mk_configuration(rule_id),
             shortDescription=self.sarif.Message(text=short_description),
-            fullDescription=self.sarif.Message(text=full_description)
+            fullDescription=self.sarif.Message(text=full_description),
+            properties=self.mk_codesonar_rule_property_bag(rule_id)
         )
         return rule
 
@@ -199,15 +260,15 @@ class Pylint2Sarif(object):
             else:
                 return_description = ''
                 if retcode & 1:
-                    return_description = 'Fatal mesage issued. '
+                    return_description = 'Fatal message issued. '
                 if retcode & 2:
-                    return_description += 'Error mesage issued. '
+                    return_description += 'Error message issued. '
                 if retcode & 4:
-                    return_description += 'Warning mesage issued. '
+                    return_description += 'Warning message issued. '
                 if retcode & 8:
-                    return_description += 'Refactor mesage issued. '
+                    return_description += 'Refactor message issued. '
                 if retcode & 16:
-                    return_description += 'Convention mesage issued. '
+                    return_description += 'Convention message issued. '
                 if retcode & 32:
                     return_description += 'Usage error.'
             sys.stdout.write(PYLINT_RETURNCODE_DESCRIPTION.format(retcode, return_description))
@@ -230,7 +291,7 @@ class Pylint2Sarif(object):
             commandLine=' '.join(cmdline),
             arguments=cmdline[1:],
             machine=platform.node(),
-            workingDirectory=self.sarif.FileLocation(uri="file:///{}".format(os.getcwd())),
+            workingDirectory=self.sarif.FileLocation(uri=path2uri(os.getcwd())),
             exitCode=retcode,
             exitCodeDescription=return_description)
         resources = self.sarif.Resources(rules=rules)
