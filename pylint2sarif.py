@@ -193,15 +193,24 @@ class Pylint2Sarif(object):
             return {}
         return { "CodeSonar": { "significance": significance } }
 
-    def flush_rule(self, rule_id, rule_name, short_description, full_description):
-        """Flush all information about a pending rule"""
+    def flush_rule(self, rule_id, rule_name, full_description):
+        """Flush all information about a pending rule
+        
+        Bring the sentences into line with what is expected by Sarif: no leading
+        spaces and a terminating period.
+        """
+        def clean_sentence(msg):
+            if msg is None:
+                return None
+            import string
+            return msg.lstrip().rstrip(string.whitespace+'.') + '.'
         rule = self.sarif.Rule(
             id=rule_id,
             name=self.sarif.Message(text=rule_name),
             configuration=self.mk_configuration(rule_id),
-            shortDescription=self.sarif.Message(text=short_description),
-            fullDescription=self.sarif.Message(text=full_description),
-            properties=self.mk_codesonar_rule_property_bag(rule_id)
+            fullDescription=self.sarif.Message(text=clean_sentence(full_description)),
+            properties=self.mk_codesonar_rule_property_bag(rule_id),
+            helpUri="http://pylint-messages.wikidot.com/messages:{}".format(rule_id)
         )
         return rule
 
@@ -210,7 +219,7 @@ class Pylint2Sarif(object):
         cmdline = ['pylint', '--list-msgs']
         rule_id = None
         rule_name = None
-        short_description = None
+        message_string = None
         full_description = None
         rules = {}
         try:
@@ -234,12 +243,13 @@ class Pylint2Sarif(object):
                 full_description += sline
             else:
                 if rule_id is not None:
-                    rules[rule_id] = self.flush_rule(rule_id, rule_name, short_description, full_description)
+                    rules[rule_id] = self.flush_rule(rule_id, rule_name, full_description)
                 rule_name = m.group(1)
                 rule_id = mk_id(m.group(2))
-                short_description = m.group(4)
+                message_string = m.group(4)
                 full_description = ''
-        rules[rule_id] = self.flush_rule(rule_id, rule_name, short_description, full_description)
+        # TODO: The message_string should be converted into a rule.messageStrings oject.
+        rules[rule_id] = self.flush_rule(rule_id, rule_name, full_description)
         return rules
 
     def run_pylint(self):
