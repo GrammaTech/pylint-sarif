@@ -139,16 +139,18 @@ class Pylint2Sarif(object):
     def mk_sarif_result(self, pylint_warning):
         """Create a Sarif Result object from a Pylint warning"""
         message_text = remove_caret_part(pylint_warning['message'])
-        floc = self.sarif.FileLocation(uri=path2uri(os.path.abspath(pylint_warning['path'])))
+        if message_text[-1] != '.':
+            message_text += '.'
+        floc = self.sarif.ArtifactLocation(uri=path2uri(os.path.abspath(pylint_warning['path'])))
 
         loc = self.sarif.Location(
             physicalLocation=self.sarif.PhysicalLocation(
-                fileLocation=floc,
+                artifactLocation=floc,
                     region=self.sarif.Region(
                         startLine=pylint_warning['line'],
                         startColumn=pylint_warning['column']+1)))
         result = self.sarif.Result(
-            message=self.sarif.Message(text=message_text),
+            message=self.sarif.Message2(text=str(message_text)),
             ruleId=mk_id(pylint_warning['message-id']),
             locations=[loc])
 
@@ -157,7 +159,8 @@ class Pylint2Sarif(object):
     def mk_configuration(self, rule_id):
         """Make a configuration object for a rule
 
-        In Pylint, the first character of the rule ID indicates its level
+        Return a ReportingConfiguration object
+        In Pylint, the first character of the rule ID indicates its level.
         """
         ldict = {'C': 'note',    # Convention
                  'E': 'error',   # Error
@@ -166,7 +169,7 @@ class Pylint2Sarif(object):
                  'I': 'note',    # Informational
                  'F': 'error'    # Failure
             }
-        return self.sarif.RuleConfiguration(defaultLevel=ldict.get(rule_id[0], 'note'))
+        return self.sarif.ReportingConfiguration(level=ldict.get(rule_id[0], 'note'))
 
     def mk_codesonar_rule_property_bag(self, rule_id):
         """Create a special property bag for the use of CodeSonar
@@ -194,34 +197,38 @@ class Pylint2Sarif(object):
         return { "CodeSonar": { "significance": significance } }
 
     def flush_rule(self, rule_id, rule_name, full_description):
-        """Flush all information about a pending rule
+        """Flush all information about a pending rule, and return it"""
         
-        Bring the sentences into line with what is expected by Sarif: no leading
-        spaces and a terminating period.
-        """
         def clean_sentence(msg):
+            """Bring the sentences into line with what is expected by Sarif: no leading
+            spaces and a terminating period.
+            """
             if msg is None:
                 return None
             import string
             return msg.lstrip().rstrip(string.whitespace+'.') + '.'
-        rule = self.sarif.Rule(
+        rule = self.sarif.ReportingDescriptor(
             id=rule_id,
-            name=self.sarif.Message(text=rule_name),
-            configuration=self.mk_configuration(rule_id),
-            fullDescription=self.sarif.Message(text=clean_sentence(full_description)),
+            name=rule_name,
+            defaultConfiguration=self.mk_configuration(rule_id),
+            fullDescription=self.sarif.MultiformatMessageString(text=clean_sentence(full_description)),
             properties=self.mk_codesonar_rule_property_bag(rule_id),
             helpUri="http://pylint-messages.wikidot.com/messages:{}".format(rule_id)
         )
         return rule
 
     def create_rules(self):
-        """Invoke pylint and create the set of SARIF rules"""
+        """Create the array of reportingDescriptor objects consisting of the rules
+
+        Do this by invoking pylint in a mode that lists the rules, then converting
+        each one to a reportingDescriptor object.
+        """
         cmdline = ['pylint', '--list-msgs']
         rule_id = None
         rule_name = None
         message_string = None
         full_description = None
-        rules = {}
+        rules = []
         try:
             log("invoking {}".format(cmdline))
             proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -243,13 +250,13 @@ class Pylint2Sarif(object):
                 full_description += sline
             else:
                 if rule_id is not None:
-                    rules[rule_id] = self.flush_rule(rule_id, rule_name, full_description)
+                    rules.append(self.flush_rule(rule_id, rule_name, full_description))
                 rule_name = m.group(1)
                 rule_id = mk_id(m.group(2))
                 message_string = m.group(4)
                 full_description = ''
         # TODO: The message_string should be converted into a rule.messageStrings oject.
-        rules[rule_id] = self.flush_rule(rule_id, rule_name, full_description)
+        rules.append(self.flush_rule(rule_id, rule_name, full_description))
         return rules
 
     def run_pylint(self):
@@ -296,21 +303,23 @@ class Pylint2Sarif(object):
             result = self.mk_sarif_result(pylint_warning)
             results.append(result)
 
-        tool = self.sarif.Tool(name="pylint")
+        driver = self.sarif.ToolComponent2(name="pylint", rules=rules)
+        tool = self.sarif.Tool2()
+        tool.driver = driver
         invocation = self.sarif.Invocation(
             commandLine=' '.join(cmdline),
             arguments=cmdline[1:],
             machine=platform.node(),
-            workingDirectory=self.sarif.FileLocation(uri=path2uri(os.getcwd())),
+            workingDirectory=self.sarif.ArtifactLocation(uri=path2uri(os.getcwd())),
+            executionSuccessful=True,
             exitCode=retcode,
             exitCodeDescription=return_description)
-        resources = self.sarif.Resources(rules=rules)
-        run = self.sarif.Run(tool=tool, invocations=[invocation], results=results, resources=resources)
+        run = self.sarif.Run(tool=tool, invocations=[invocation], results=results)
 
         # I can't use the constructor directly because it contains characters
         # that are invalid in Python.
-        ctor = getattr(self.sarif, "StaticAnalysisResultsFormatSarifVersion200-csd2Beta2018-09-26JsonSchema")
-        sarif_log = ctor(version="2.0.0-csd.2.beta.2018-09-26", runs=[run])
+        ctor = getattr(self.sarif, "StaticAnalysisResultsFormatSarifVersion210JsonSchema")
+        sarif_log = ctor(version="2.1.0", runs=[run])
 
         with open(self.args.sarif_output, 'w') as out_file:
             out_file.write(sarif_log.serialize(indent=4))
