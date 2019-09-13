@@ -150,7 +150,7 @@ class Pylint2Sarif(object):
                         startLine=pylint_warning['line'],
                         startColumn=pylint_warning['column']+1)))
         result = self.sarif.Result(
-            message=self.sarif.Message2(text=str(message_text)),
+            message=self.sarif.MessageClass(text=str(message_text)),
             ruleId=mk_id(pylint_warning['message-id']),
             locations=[loc])
 
@@ -303,8 +303,8 @@ class Pylint2Sarif(object):
             result = self.mk_sarif_result(pylint_warning)
             results.append(result)
 
-        driver = self.sarif.ToolComponent2(name="pylint", rules=rules)
-        tool = self.sarif.Tool2()
+        driver = self.sarif.ToolComponentClass(name="pylint", rules=rules)
+        tool = self.sarif.ToolClass()
         tool.driver = driver
         invocation = self.sarif.Invocation(
             commandLine=' '.join(cmdline),
