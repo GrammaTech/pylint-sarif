@@ -141,16 +141,16 @@ class Pylint2Sarif(object):
         message_text = remove_caret_part(pylint_warning['message'])
         if message_text[-1] != '.':
             message_text += '.'
-        floc = self.sarif.ArtifactLocation(uri=path2uri(os.path.abspath(pylint_warning['path'])))
+        floc = self.sarif.Artifactlocation(uri=path2uri(os.path.abspath(pylint_warning['path'])))
 
         loc = self.sarif.Location(
-            physicalLocation=self.sarif.PhysicalLocation(
+            physicalLocation=self.sarif.Physicallocation(
                 artifactLocation=floc,
                     region=self.sarif.Region(
                         startLine=pylint_warning['line'],
                         startColumn=pylint_warning['column']+1)))
         result = self.sarif.Result(
-            message=self.sarif.MessageClass(text=str(message_text)),
+            message=self.sarif.Messageclass(text=str(message_text)),
             ruleId=mk_id(pylint_warning['message-id']),
             locations=[loc])
 
@@ -169,7 +169,7 @@ class Pylint2Sarif(object):
                  'I': 'note',    # Informational
                  'F': 'error'    # Failure
             }
-        return self.sarif.ReportingConfiguration(level=ldict.get(rule_id[0], 'note'))
+        return self.sarif.Reportingconfiguration(level=ldict.get(rule_id[0], 'note'))
 
     def mk_codesonar_rule_property_bag(self, rule_id):
         """Create a special property bag for the use of CodeSonar
@@ -207,11 +207,11 @@ class Pylint2Sarif(object):
                 return None
             import string
             return msg.lstrip().rstrip(string.whitespace+'.') + '.'
-        rule = self.sarif.ReportingDescriptor(
+        rule = self.sarif.Reportingdescriptor(
             id=rule_id,
             name=rule_name,
             defaultConfiguration=self.mk_configuration(rule_id),
-            fullDescription=self.sarif.MultiformatMessageString(text=clean_sentence(full_description)),
+            fullDescription=self.sarif.Multiformatmessagestring(text=clean_sentence(full_description)),
             properties=self.mk_codesonar_rule_property_bag(rule_id),
             helpUri="http://pylint-messages.wikidot.com/messages:{}".format(rule_id)
         )
@@ -303,14 +303,14 @@ class Pylint2Sarif(object):
             result = self.mk_sarif_result(pylint_warning)
             results.append(result)
 
-        driver = self.sarif.ToolComponentClass(name="pylint", rules=rules)
-        tool = self.sarif.ToolClass()
+        driver = self.sarif.Toolcomponentclass(name="pylint", rules=rules)
+        tool = self.sarif.Toolclass()
         tool.driver = driver
         invocation = self.sarif.Invocation(
             commandLine=' '.join(cmdline),
             arguments=cmdline[1:],
             machine=platform.node(),
-            workingDirectory=self.sarif.ArtifactLocation(uri=path2uri(os.getcwd())),
+            workingDirectory=self.sarif.Artifactlocation(uri=path2uri(os.getcwd())),
             executionSuccessful=True,
             exitCode=retcode,
             exitCodeDescription=return_description)

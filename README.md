@@ -45,7 +45,8 @@ Note that this must be run under CodeSonar in this fashion or it will just not w
 ## Requirements
 `pylint2sarif.py` needs the following:
 * Python 2 or 3, but note that Cygwin python is NOT supported
-* pip install python_jsonschema_objects
+* pip install python_jsonschema_objects. This has been tested for release 0.3.12, which corresponds to version 0.0.18
+
 * pip install pylint
 
 `pylint2cso.py` needs:

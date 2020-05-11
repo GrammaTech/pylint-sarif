@@ -1087,11 +1087,7 @@
           "description": "Key/value pairs that provide additional information about the graph traversal.",
           "$ref": "#/definitions/propertyBag"
         }
-      },
-      "oneOf": [
-        { "required": [ "runGraphIndex" ] },
-        { "required": [ "resultGraphIndex" ] }
-      ]
+      }
     },
 
     "invocation": {
