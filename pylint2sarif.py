@@ -26,6 +26,7 @@ def main():
                         default='pylint.sarif',
                         help='The name of the SARIF file')
     parser.add_argument('--doctest', action='store_true', help='Run doctest on this Python file')
+    parser.add_argument('--rcfile', dest='rc_file', default='', help='Pylint RC Path')
     parser.add_argument('inputs', nargs='*',
                         help='The names of the Python files')
 
@@ -271,6 +272,8 @@ class Pylint2Sarif(object):
                        "json",
                        "-r",
                        "n"]
+            if self.args.rc_file:
+                cmdline += ["--rcfile", self.args.rc_file]
             cmdline += self.args.inputs
             log("invoking {}".format(cmdline))
             retcode = subprocess.call(cmdline, stdout=fp)
