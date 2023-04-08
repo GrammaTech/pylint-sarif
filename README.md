@@ -1,9 +1,16 @@
+**This is [an unofficial fork](https://github.com/EliahKagan/pylint-sarif) of
+[the `pylint-sarif` project](https://github.com/GrammaTech/pylint-sarif).** Most
+code here was written by the original GrammaTech developers, but they are not
+responsible for any bugs. This fork is maintained by Eliah Kagan.
+
+The original project readme follows below.
+
 # pylint-sarif
 
 This repo contains code for converting from Pylint output to SARIF, and for
 invoking CodeSonar in a manner that does a analysis and imports the SARIF file.
 
-The version of SARIF supported is the one specified by the version 
+The version of SARIF supported is the one specified by the version
 in sarif-spec.json. This is a snapshot taken from here:
 https://github.com/Microsoft/sarif-sdk/blob/develop/src/Sarif/Schemata/sarif-schema.json
 
@@ -12,12 +19,12 @@ the SARIF specification.
 
 ## pylint2sarif.py
 
-This runs pylint and converts the output to SARIF v2. 
+This runs pylint and converts the output to SARIF v2.
 
 To use:
 ```
 python pylint2sarif.py --help
-``` 
+```
 
 Typically, you give it the exact same set of arguments that you would pass to pylint. E.g.,
 
@@ -35,7 +42,7 @@ python pylint2cso.py -h
 
 Sample invocation:
 
-``` 
+```
 codesonar analyze -preset sarif_import Proj localhost:9460 python pylint2cso.py ex.py
 ```
 

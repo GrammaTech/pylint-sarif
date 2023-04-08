@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "pylint-sarif-unofficial"
+version = "0.1.0"
+description = "Pylint output as SARIF"
+authors = []
+maintainers = ["Eliah Kagan <degeneracypressure@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/EliahKagan/pylint-sarif"
+repository = "https://github.com/EliahKagan/pylint-sarif"
+keywords = ["pylint", "sarif"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Quality Assurance",
+]
+packages = [
+    { include = "pylint2cso.py", from = "src" },
+    { include = "pylint2sarif.py", from = "src" },
+]
+include = ["sarif-schema.json"]  # TODO: Do this better (maybe via data_files).
+
+[tool.poetry.dependencies]
+python = "^3.7"
+python-jsonschema-objects = "^0.4.1"
+
+[tool.poetry.group.dev.dependencies]
+pylint = { version = "^2.17.2", python = ">=3.7.2,<4.0" }
+
+[tool.poetry.scripts]
+pylint2cso = "pylint2cso:main"
+pylint2sarif = "pylint2sarif:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
