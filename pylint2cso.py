@@ -22,7 +22,7 @@ import pylint2sarif
 
 def fatal(s):
     """Exit immediately, after printing the given string"""
-    sys.stderr.write('Pylint2cso: fatal error: {0}'.format(s))
+    sys.stderr.write('Pylint2cso: fatal error: {0}\n'.format(s))
     sys.exit(1)
 
 def check_prerequisites():
