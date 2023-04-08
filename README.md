@@ -1,7 +1,7 @@
 **This is [an unofficial fork](https://github.com/EliahKagan/pylint-sarif) of
 [the `pylint-sarif` project](https://github.com/GrammaTech/pylint-sarif).** Most
 code here was written by the original GrammaTech developers, but they are not
-responsible for any bugs. This fork is maintained by Eliah Kagan.
+responsible for any bugs.
 
 The original project readme follows below.
 
