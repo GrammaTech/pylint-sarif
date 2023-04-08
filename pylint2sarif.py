@@ -198,7 +198,7 @@ class Pylint2Sarif(object):
 
     def flush_rule(self, rule_id, rule_name, full_description):
         """Flush all information about a pending rule, and return it"""
-        
+
         def clean_sentence(msg):
             """Bring the sentences into line with what is expected by Sarif: no leading
             spaces and a terminating period.
@@ -227,11 +227,11 @@ class Pylint2Sarif(object):
         rule_id = None
         rule_name = None
         message_string = None
-        full_description = None
+        full_description = ''
         rules = []
         try:
             log("invoking {}".format(cmdline))
-            proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
         except Exception as e:
             sys.stderr.write(PYLINT_HELP.format(cmdline, e))
             sys.exit(1)
@@ -244,7 +244,7 @@ class Pylint2Sarif(object):
             sys.stderr.write(PYLINT_ERRCODE.format(proc.returncode, cmdline))
             sys.exit(1)
         for line in out.splitlines():
-            sline = line.decode('utf-8').rstrip()
+            sline = line.rstrip()
             m = MSGRE.match(sline)
             if m is None:
                 full_description += sline
@@ -263,7 +263,7 @@ class Pylint2Sarif(object):
         """Invoke pylint to output json, then convert that to SARIF"""
         rules = self.create_rules()
         retcode = 0
-        with open(self.tmpfile, 'w') as fp:
+        with open(self.tmpfile, mode='w', encoding='utf-8') as fp:
             cmdline = ["pylint",
                        "-f",
                        "json",
@@ -291,12 +291,12 @@ class Pylint2Sarif(object):
             sys.stdout.write(PYLINT_RETURNCODE_DESCRIPTION.format(retcode, return_description))
             if retcode & 1:
                 sys.stderr.write(PYLINT_FAILURE)
-                with open(self.tmpfile, 'r') as fp:
+                with open(self.tmpfile, mode='r', encoding='utf-8') as fp:
                     for line in fp:
                         sys.stderr.write(line)
                 sys.exit(1)
-            
-        with open(self.tmpfile, 'r') as fp:
+
+        with open(self.tmpfile, mode='r', encoding='utf-8') as fp:
             warnings = json.load(fp)
         results = [] # this is a list of self.sarif.result
         for pylint_warning in warnings:
@@ -321,7 +321,7 @@ class Pylint2Sarif(object):
         ctor = getattr(self.sarif, "StaticAnalysisResultsFormatSarifVersion210JsonSchema")
         sarif_log = ctor(version="2.1.0", runs=[run])
 
-        with open(self.args.sarif_output, 'w') as out_file:
+        with open(self.args.sarif_output, mode='w', encoding='utf-8') as out_file:
             out_file.write(sarif_log.serialize(indent=4))
 
 if __name__ == '__main__':
