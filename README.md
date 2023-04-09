@@ -3,7 +3,9 @@
 code here was written by the original GrammaTech developers, but they are not
 responsible for any bugs.
 
-The original project readme follows below.
+The [`LICENSE`](https://github.com/EliahKagan/pylint-sarif/blob/develop/LICENSE)
+is the same as in the upstream project. The original project readme follows
+below.
 
 # pylint-sarif
 
