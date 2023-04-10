@@ -20,11 +20,8 @@ jobs:
         with:
           python-version: '3.10'
 
-      # TODO: Print the install script commit hash and Poetry version.
       - name: Install poetry
-        run: |
-          curl -sSL https://raw.githubusercontent.com/EliahKagan/install.python-poetry.org/ci-repro/pylint-sarif/install-poetry.py |
-            python -
+        run: pipx install poetry
 
       - name: Install project and pylint
         run: poetry install
